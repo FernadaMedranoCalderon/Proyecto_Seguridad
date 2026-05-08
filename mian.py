@@ -1,5 +1,6 @@
 from flask import Flask, render_template_string, request
 import sqlite3
+from seed import USERS, EXPEDIENTES, INJECTION_EXAMPLES, SEARCH_INJECTION_EXAMPLES
 
 
 app = Flask(__name__)
@@ -16,7 +17,8 @@ def init_db():
             id INTEGER PRIMARY KEY,
             username TEXT NOT NULL,
             password TEXT NOT NULL,
-            role TEXT NOT NULL
+            role TEXT NOT NULL,
+            department TEXT NOT NULL
         )
         """
     )
@@ -26,27 +28,19 @@ def init_db():
             folio TEXT PRIMARY KEY,
             ciudadano TEXT NOT NULL,
             dependencia TEXT NOT NULL,
-            estatus TEXT NOT NULL
+            estatus TEXT NOT NULL,
+            descripcion TEXT
         )
         """
     )
 
     cursor.executemany(
-        "INSERT INTO users VALUES (?, ?, ?, ?)",
-        [
-            (1, "admin", "password123", "Administrador"),
-            (2, "auditor", "auditor2026", "Auditor"),
-            (3, "invitado", "uabc2026", "Consulta"),
-        ],
+        "INSERT INTO users VALUES (?, ?, ?, ?, ?)",
+        USERS,
     )
     cursor.executemany(
-        "INSERT INTO expedientes VALUES (?, ?, ?, ?)",
-        [
-            ("GOB-2026-001", "Mariana Lopez", "Salud", "En revision"),
-            ("GOB-2026-002", "Carlos Vega", "Finanzas", "Aprobado"),
-            ("GOB-2026-003", "Ana Torres", "Obras Publicas", "Pendiente"),
-            ("GOB-2026-004", "Luis Rojas", "Educacion", "Archivado"),
-        ],
+        "INSERT INTO expedientes VALUES (?, ?, ?, ?, ?)",
+        EXPEDIENTES,
     )
     conn.commit()
     return conn
@@ -275,6 +269,83 @@ HTML_TEMPLATE = """
         @media (max-width: 900px) {
             .hero, .grid { grid-template-columns: 1fr; }
         }
+
+        .injection-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .injection-item {
+            padding: 14px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+        }
+
+        .injection-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .copy-btn {
+            padding: 6px 12px;
+            background: rgba(77, 208, 225, 0.2);
+            border: 1px solid rgba(77, 208, 225, 0.5);
+            color: var(--accent);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .copy-btn:hover {
+            background: rgba(77, 208, 225, 0.4);
+        }
+
+        .injection-detail {
+            font-size: 0.9rem;
+            display: grid;
+            gap: 6px;
+        }
+
+        code {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: #ffff99;
+            word-break: break-all;
+        }
+
+        h3 {
+            margin: 0 0 12px;
+            font-size: 1rem;
+        }
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        .users-table th, .users-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .users-table th {
+            background: rgba(77, 208, 225, 0.1);
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .users-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
     </style>
 </head>
 <body>
@@ -308,6 +379,28 @@ HTML_TEMPLATE = """
                     <strong>Objetivo</strong>
                     Mostrar como una concatenacion de cadenas termina comprometiendo el control de acceso.
                 </div>
+
+                <div style="margin-top: 20px;">
+                    <h3 style="color: var(--accent);">Usuarios en la BD</h3>
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Contraseña</th>
+                                <th>Rol</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td>{{ user.username }}</td>
+                                <td><code>{{ user.password }}</code></td>
+                                <td>{{ user.role }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </aside>
         </section>
 
@@ -315,7 +408,7 @@ HTML_TEMPLATE = """
             <article class="panel card">
                 <h2>Acceso al portal</h2>
                 <p>Formulario de autenticacion con una implementacion vulnerable para la version principal.</p>
-                <form method="post">
+                <form method="post" id="loginForm">
                     <input type="hidden" name="action" value="login">
                     <div>
                         <label for="username">Usuario</label>
@@ -327,12 +420,31 @@ HTML_TEMPLATE = """
                     </div>
                     <button type="submit">Entrar</button>
                 </form>
+
+                <div style="margin-top: 20px;">
+                    <h3 style="color: var(--accent); margin-bottom: 12px;">Ejemplos de inyecciones para el login</h3>
+                    <div class="injection-list">
+                        {% for example in injection_examples %}
+                        <div class="injection-item">
+                            <div class="injection-header">
+                                <strong>{{ example.name }}</strong>
+                                <button type="button" class="copy-btn" onclick="fillLogin('{{ example.user|replace("'", "\\'") }}', '{{ example.pass|replace("'", "\\'") }}')">Usar</button>
+                            </div>
+                            <div class="injection-detail">
+                                <div><small style="color: var(--muted);">Usuario:</small> <code>{{ example.user }}</code></div>
+                                <div><small style="color: var(--muted);">Contraseña:</small> <code>{{ example.pass }}</code></div>
+                                <div style="margin-top: 8px; color: #a0b0c0; font-size: 0.9rem;">{{ example.description }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
             </article>
 
             <article class="panel card">
                 <h2>Busqueda de expedientes</h2>
                 <p>Segundo punto de entrada para demostrar como un campo de busqueda puede romper el filtro de consulta.</p>
-                <form method="post">
+                <form method="post" id="searchForm">
                     <input type="hidden" name="action" value="search">
                     <div>
                         <label for="term">Folio o nombre</label>
@@ -349,12 +461,33 @@ HTML_TEMPLATE = """
                 <div class="results">
                     {% for item in results %}
                     <div class="row">
-                        <strong>{{ item[0] }}</strong>
-                        <span>{{ item[1] }} | {{ item[2] }} | {{ item[3] }}</span>
+                        <div>
+                            <strong>{{ item[0] }}</strong>
+                            <div style="font-size: 0.9rem; color: var(--muted); margin-top: 4px;">{{ item[1] }} | {{ item[2] }} | {{ item[3] }}</div>
+                        </div>
+                        <div style="color: #a0b0c0; font-size: 0.9rem;">{{ item[4] }}</div>
                     </div>
                     {% endfor %}
                 </div>
                 {% endif %}
+
+                <div style="margin-top: 20px;">
+                    <h3 style="color: var(--accent); margin-bottom: 12px;">Ejemplos de inyecciones en búsqueda</h3>
+                    <div class="injection-list">
+                        {% for example in search_injection_examples %}
+                        <div class="injection-item">
+                            <div class="injection-header">
+                                <strong>{{ example.name }}</strong>
+                                <button type="button" class="copy-btn" onclick="fillSearch('{{ example.term|replace("'", "\\'") }}')">Usar</button>
+                            </div>
+                            <div class="injection-detail">
+                                <div><small style="color: var(--muted);">Búsqueda:</small> <code>{{ example.term }}</code></div>
+                                <div style="margin-top: 8px; color: #a0b0c0; font-size: 0.9rem;">{{ example.description }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
             </article>
         </section>
 
@@ -363,6 +496,19 @@ HTML_TEMPLATE = """
             enseñar el error de construccion de consultas, no exponer un sistema real.
         </p>
     </main>
+
+    <script>
+        function fillLogin(user, pass) {
+            document.getElementById('username').value = user;
+            document.getElementById('password').value = pass;
+            document.getElementById('loginForm').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function fillSearch(term) {
+            document.getElementById('term').value = term;
+            document.getElementById('searchForm').scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
 </body>
 </html>
 """
@@ -385,7 +531,7 @@ def index():
                 username = request.form.get("username", "")
                 password = request.form.get("password", "")
                 debug_sql = (
-                    "SELECT id, username, role FROM users WHERE username = '"
+                    "SELECT id, username, role, department FROM users WHERE username = '"
                     + username
                     + "' AND password = '"
                     + password
@@ -394,16 +540,18 @@ def index():
                 cursor.execute(debug_sql)
                 user = cursor.fetchone()
                 if user:
-                    success = f"Acceso concedido para {user['username']} ({user['role']})."
+                    success = f"Acceso concedido para {user['username']} ({user['role']}) - Dept: {user['department']}"
                 else:
                     error = "Credenciales invalidas."
                 info = "La consulta SQL completa se muestra en pantalla para el ejercicio de clase."
             elif action == "search":
                 term = request.form.get("term", "")
                 debug_sql = (
-                    "SELECT folio, ciudadano, dependencia, estatus FROM expedientes WHERE folio LIKE '%"
+                    "SELECT folio, ciudadano, dependencia, estatus, descripcion FROM expedientes WHERE folio LIKE '%"
                     + term
                     + "%' OR ciudadano LIKE '%"
+                    + term
+                    + "%' OR descripcion LIKE '%"
                     + term
                     + "%'"
                 )
@@ -424,6 +572,9 @@ def index():
         info=info,
         results=results,
         debug_sql=debug_sql,
+        injection_examples=INJECTION_EXAMPLES,
+        search_injection_examples=SEARCH_INJECTION_EXAMPLES,
+        users=[dict(u._mapping) if hasattr(u, '_mapping') else dict(zip(['id', 'username', 'password', 'role', 'department'], u)) for u in db_conn.execute("SELECT * FROM users").fetchall()],
     )
 
 
