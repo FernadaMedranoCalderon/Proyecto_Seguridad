@@ -285,8 +285,8 @@ HTML_TEMPLATE = """
                 <h1>Portal Ciudadano de Expedientes</h1>
                 <p class="lede">
                     Esta pagina simula un sistema gubernamental de consulta con datos ficticios para una
-                    demostracion tecnica. En la rama <strong>main</strong> la construccion de consultas es
-                    deliberadamente insegura para mostrar el impacto de una inyeccion SQL en un entorno controlado.
+                    demostracion tecnica. En la rama <strong>fixed</strong> la construccion de consultas usa
+                    defensas basicas para mostrar la mitigacion de una inyeccion SQL en un entorno controlado.
                 </p>
                 <div class="messages">
                     {% if error %}<div class="message error">{{ error }}</div>{% endif %}
@@ -314,7 +314,7 @@ HTML_TEMPLATE = """
         <section class="grid">
             <article class="panel card">
                 <h2>Acceso al portal</h2>
-                <p>Formulario de autenticacion con una implementacion vulnerable para la version principal.</p>
+                <p>Formulario de autenticacion con consultas parametrizadas y validacion basica de entrada.</p>
                 <form method="post">
                     <input type="hidden" name="action" value="login">
                     <div>
@@ -331,7 +331,7 @@ HTML_TEMPLATE = """
 
             <article class="panel card">
                 <h2>Busqueda de expedientes</h2>
-                <p>Segundo punto de entrada para demostrar como un campo de busqueda puede romper el filtro de consulta.</p>
+                <p>Segundo punto de entrada protegido con consultas parametrizadas y coincidencias seguras.</p>
                 <form method="post">
                     <input type="hidden" name="action" value="search">
                     <div>
@@ -384,36 +384,36 @@ def index():
             if action == "login":
                 username = request.form.get("username", "")
                 password = request.form.get("password", "")
-                debug_sql = (
-                    "SELECT id, username, role FROM users WHERE username = '"
-                    + username
-                    + "' AND password = '"
-                    + password
-                    + "'"
-                )
-                cursor.execute(debug_sql)
-                user = cursor.fetchone()
-                if user:
-                    success = f"Acceso concedido para {user['username']} ({user['role']})."
+                username = username.strip()
+                password = password.strip()
+                if not username or not password:
+                    error = "Debes completar usuario y clave."
                 else:
-                    error = "Credenciales invalidas."
-                info = "La consulta SQL completa se muestra en pantalla para el ejercicio de clase."
+                    debug_sql = "SELECT id, username, role FROM users WHERE username = ? AND password = ?"
+                    cursor.execute(debug_sql, (username, password))
+                    user = cursor.fetchone()
+                    if user:
+                        success = f"Acceso concedido para {user['username']} ({user['role']})."
+                    else:
+                        error = "Credenciales invalidas."
+                    info = "La consulta usa parametros enlazados, no concatenacion de cadenas."
             elif action == "search":
-                term = request.form.get("term", "")
-                debug_sql = (
-                    "SELECT folio, ciudadano, dependencia, estatus FROM expedientes WHERE folio LIKE '%"
-                    + term
-                    + "%' OR ciudadano LIKE '%"
-                    + term
-                    + "%'"
-                )
-                cursor.execute(debug_sql)
-                results = cursor.fetchall()
-                if results:
-                    success = f"Se encontraron {len(results)} expediente(s)."
+                term = request.form.get("term", "").strip()
+                if not term:
+                    error = "Ingresa un folio o nombre para buscar."
                 else:
-                    error = "No se encontraron coincidencias."
-                info = "El panel de busqueda replica un segundo punto clasico de inyeccion SQL."
+                    debug_sql = (
+                        "SELECT folio, ciudadano, dependencia, estatus FROM expedientes "
+                        "WHERE folio LIKE ? OR ciudadano LIKE ?"
+                    )
+                    pattern = f"%{term}%"
+                    cursor.execute(debug_sql, (pattern, pattern))
+                    results = cursor.fetchall()
+                    if results:
+                        success = f"Se encontraron {len(results)} expediente(s)."
+                    else:
+                        error = "No se encontraron coincidencias."
+                    info = "El filtrado usa marcadores de posicion y no inserta la entrada en el SQL."
         except Exception as exc:
             error = f"Error en la base de datos: {exc}"
 
