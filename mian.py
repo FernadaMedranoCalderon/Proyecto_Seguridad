@@ -269,6 +269,83 @@ HTML_TEMPLATE = """
         @media (max-width: 900px) {
             .hero, .grid { grid-template-columns: 1fr; }
         }
+
+        .injection-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .injection-item {
+            padding: 14px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+        }
+
+        .injection-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .copy-btn, .copy-btn-search {
+            padding: 6px 12px;
+            background: rgba(77, 208, 225, 0.2);
+            border: 1px solid rgba(77, 208, 225, 0.5);
+            color: var(--accent);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .copy-btn:hover, .copy-btn-search:hover {
+            background: rgba(77, 208, 225, 0.4);
+        }
+
+        .injection-detail {
+            font-size: 0.9rem;
+            display: grid;
+            gap: 6px;
+        }
+
+        code {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: #ffff99;
+            word-break: break-all;
+        }
+
+        h3 {
+            margin: 0 0 12px;
+            font-size: 1rem;
+        }
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        .users-table th, .users-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .users-table th {
+            background: rgba(77, 208, 225, 0.1);
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .users-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
     </style>
 </head>
 <body>
