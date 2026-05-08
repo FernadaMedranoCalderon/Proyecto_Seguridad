@@ -428,7 +428,7 @@ HTML_TEMPLATE = """
                         <div class="injection-item">
                             <div class="injection-header">
                                 <strong>{{ example.name }}</strong>
-                                <button type="button" class="copy-btn" onclick="fillLogin({{ example.user|tojson }}, {{ example.pass|tojson }})">Usar</button>
+                                <button type="button" class="copy-btn" data-user="{{ example.user }}" data-pass="{{ example.pass }}">Usar</button>
                             </div>
                             <div class="injection-detail">
                                 <div><small style="color: var(--muted);">Usuario:</small> <code>{{ example.user }}</code></div>
@@ -478,7 +478,7 @@ HTML_TEMPLATE = """
                         <div class="injection-item">
                             <div class="injection-header">
                                 <strong>{{ example.name }}</strong>
-                                <button type="button" class="copy-btn" onclick="fillSearch({{ example.term|tojson }})">Usar</button>
+                                <button type="button" class="copy-btn-search" data-term="{{ example.term }}">Usar</button>
                             </div>
                             <div class="injection-detail">
                                 <div><small style="color: var(--muted);">Búsqueda:</small> <code>{{ example.term }}</code></div>
@@ -508,6 +508,26 @@ HTML_TEMPLATE = """
             document.getElementById('term').value = term;
             document.getElementById('searchForm').scrollIntoView({ behavior: 'smooth' });
         }
+
+        // Event listeners for injection example buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            // Login injection buttons
+            document.querySelectorAll('button.copy-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const user = this.dataset.user || '';
+                    const pass = this.dataset.pass || '';
+                    fillLogin(user, pass);
+                });
+            });
+
+            // Search injection buttons
+            document.querySelectorAll('button.copy-btn-search').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const term = this.dataset.term || '';
+                    fillSearch(term);
+                });
+            });
+        });
     </script>
 </body>
 </html>
