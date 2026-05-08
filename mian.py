@@ -1,5 +1,6 @@
 from flask import Flask, render_template_string, request
 import sqlite3
+from seed import USERS, EXPEDIENTES, INJECTION_EXAMPLES, SEARCH_INJECTION_EXAMPLES
 
 
 app = Flask(__name__)
@@ -16,7 +17,8 @@ def init_db():
             id INTEGER PRIMARY KEY,
             username TEXT NOT NULL,
             password TEXT NOT NULL,
-            role TEXT NOT NULL
+            role TEXT NOT NULL,
+            department TEXT NOT NULL
         )
         """
     )
@@ -26,27 +28,19 @@ def init_db():
             folio TEXT PRIMARY KEY,
             ciudadano TEXT NOT NULL,
             dependencia TEXT NOT NULL,
-            estatus TEXT NOT NULL
+            estatus TEXT NOT NULL,
+            descripcion TEXT
         )
         """
     )
 
     cursor.executemany(
-        "INSERT INTO users VALUES (?, ?, ?, ?)",
-        [
-            (1, "admin", "password123", "Administrador"),
-            (2, "auditor", "auditor2026", "Auditor"),
-            (3, "invitado", "uabc2026", "Consulta"),
-        ],
+        "INSERT INTO users VALUES (?, ?, ?, ?, ?)",
+        USERS,
     )
     cursor.executemany(
-        "INSERT INTO expedientes VALUES (?, ?, ?, ?)",
-        [
-            ("GOB-2026-001", "Mariana Lopez", "Salud", "En revision"),
-            ("GOB-2026-002", "Carlos Vega", "Finanzas", "Aprobado"),
-            ("GOB-2026-003", "Ana Torres", "Obras Publicas", "Pendiente"),
-            ("GOB-2026-004", "Luis Rojas", "Educacion", "Archivado"),
-        ],
+        "INSERT INTO expedientes VALUES (?, ?, ?, ?, ?)",
+        EXPEDIENTES,
     )
     conn.commit()
     return conn
@@ -306,7 +300,29 @@ HTML_TEMPLATE = """
                 </div>
                 <div class="stat">
                     <strong>Objetivo</strong>
-                    Mostrar como una concatenacion de cadenas termina comprometiendo el control de acceso.
+                    Demostrar como las consultas parametrizadas protegen contra inyecciones SQL.
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <h3 style="color: var(--accent);">Usuarios en la BD</h3>
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Contraseña</th>
+                                <th>Rol</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td>{{ user.username }}</td>
+                                <td><code>{{ user.password }}</code></td>
+                                <td>{{ user.role }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </aside>
         </section>
@@ -315,7 +331,7 @@ HTML_TEMPLATE = """
             <article class="panel card">
                 <h2>Acceso al portal</h2>
                 <p>Formulario de autenticacion con consultas parametrizadas y validacion basica de entrada.</p>
-                <form method="post">
+                <form method="post" id="loginForm">
                     <input type="hidden" name="action" value="login">
                     <div>
                         <label for="username">Usuario</label>
@@ -327,12 +343,31 @@ HTML_TEMPLATE = """
                     </div>
                     <button type="submit">Entrar</button>
                 </form>
+
+                <div style="margin-top: 20px;">
+                    <h3 style="color: var(--accent); margin-bottom: 12px;">Ejemplos de intentos de inyección (bloqueados aquí)</h3>
+                    <div class="injection-list">
+                        {% for example in injection_examples %}
+                        <div class="injection-item">
+                            <div class="injection-header">
+                                <strong>{{ example.name }}</strong>
+                                <button type="button" class="copy-btn" onclick="fillLogin('{{ example.user|replace("'", "\\'") }}', '{{ example.pass|replace("'", "\\'") }}')">Intentar</button>
+                            </div>
+                            <div class="injection-detail">
+                                <div><small style="color: var(--muted);">Usuario:</small> <code>{{ example.user }}</code></div>
+                                <div><small style="color: var(--muted);">Contraseña:</small> <code>{{ example.pass }}</code></div>
+                                <div style="margin-top: 8px; color: #a0b0c0; font-size: 0.9rem;">{{ example.description }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
             </article>
 
             <article class="panel card">
                 <h2>Busqueda de expedientes</h2>
                 <p>Segundo punto de entrada protegido con consultas parametrizadas y coincidencias seguras.</p>
-                <form method="post">
+                <form method="post" id="searchForm">
                     <input type="hidden" name="action" value="search">
                     <div>
                         <label for="term">Folio o nombre</label>
@@ -349,12 +384,33 @@ HTML_TEMPLATE = """
                 <div class="results">
                     {% for item in results %}
                     <div class="row">
-                        <strong>{{ item[0] }}</strong>
-                        <span>{{ item[1] }} | {{ item[2] }} | {{ item[3] }}</span>
+                        <div>
+                            <strong>{{ item[0] }}</strong>
+                            <div style="font-size: 0.9rem; color: var(--muted); margin-top: 4px;">{{ item[1] }} | {{ item[2] }} | {{ item[3] }}</div>
+                        </div>
+                        <div style="color: #a0b0c0; font-size: 0.9rem;">{{ item[4] }}</div>
                     </div>
                     {% endfor %}
                 </div>
                 {% endif %}
+
+                <div style="margin-top: 20px;">
+                    <h3 style="color: var(--accent); margin-bottom: 12px;">Ejemplos de intentos de inyección en búsqueda (bloqueados)</h3>
+                    <div class="injection-list">
+                        {% for example in search_injection_examples %}
+                        <div class="injection-item">
+                            <div class="injection-header">
+                                <strong>{{ example.name }}</strong>
+                                <button type="button" class="copy-btn" onclick="fillSearch('{{ example.term|replace("'", "\\'") }}')">Intentar</button>
+                            </div>
+                            <div class="injection-detail">
+                                <div><small style="color: var(--muted);">Búsqueda:</small> <code>{{ example.term }}</code></div>
+                                <div style="margin-top: 8px; color: #a0b0c0; font-size: 0.9rem;">{{ example.description }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
             </article>
         </section>
 
@@ -382,32 +438,30 @@ def index():
 
         try:
             if action == "login":
-                username = request.form.get("username", "")
-                password = request.form.get("password", "")
-                username = username.strip()
-                password = password.strip()
+                username = request.form.get("username", "").strip()
+                password = request.form.get("password", "").strip()
+                
                 if not username or not password:
                     error = "Debes completar usuario y clave."
                 else:
-                    debug_sql = "SELECT id, username, role FROM users WHERE username = ? AND password = ?"
+                    debug_sql = "SELECT id, username, role, department FROM users WHERE username = ? AND password = ?"
                     cursor.execute(debug_sql, (username, password))
                     user = cursor.fetchone()
                     if user:
-                        success = f"Acceso concedido para {user['username']} ({user['role']})."
+                        success = f"Acceso concedido para {user['username']} ({user['role']}) - Dept: {user['department']}"
                     else:
                         error = "Credenciales invalidas."
-                    info = "La consulta usa parametros enlazados, no concatenacion de cadenas."
+                    info = "La consulta usa parametros enlazados. Los intentos de inyección se tratan como datos literales."
             elif action == "search":
                 term = request.form.get("term", "").strip()
                 if not term:
                     error = "Ingresa un folio o nombre para buscar."
                 else:
                     debug_sql = (
-                        "SELECT folio, ciudadano, dependencia, estatus FROM expedientes "
-                        "WHERE folio LIKE ? OR ciudadano LIKE ?"
+                        "SELECT folio, ciudadano, dependencia, estatus, descripcion FROM expedientes WHERE folio LIKE ? OR ciudadano LIKE ? OR descripcion LIKE ?"
                     )
                     pattern = f"%{term}%"
-                    cursor.execute(debug_sql, (pattern, pattern))
+                    cursor.execute(debug_sql, (pattern, pattern, pattern))
                     results = cursor.fetchall()
                     if results:
                         success = f"Se encontraron {len(results)} expediente(s)."
@@ -424,6 +478,9 @@ def index():
         info=info,
         results=results,
         debug_sql=debug_sql,
+        injection_examples=INJECTION_EXAMPLES,
+        search_injection_examples=SEARCH_INJECTION_EXAMPLES,
+        users=[dict(u._mapping) if hasattr(u, '_mapping') else dict(zip(['id', 'username', 'password', 'role', 'department'], u)) for u in db_conn.execute("SELECT * FROM users").fetchall()],
     )
 
 
