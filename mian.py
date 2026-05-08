@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, request
+from flask import Flask, render_template_string, request, json
 import sqlite3
 from seed import USERS, EXPEDIENTES, INJECTION_EXAMPLES, SEARCH_INJECTION_EXAMPLES
 
@@ -428,7 +428,7 @@ HTML_TEMPLATE = """
                         <div class="injection-item">
                             <div class="injection-header">
                                 <strong>{{ example.name }}</strong>
-                                <button type="button" class="copy-btn" onclick="fillLogin('{{ example.user|replace("'", "\\'") }}', '{{ example.pass|replace("'", "\\'") }}')">Usar</button>
+                                <button type="button" class="copy-btn" onclick="fillLogin({{ example.user|tojson }}, {{ example.pass|tojson }})">Usar</button>
                             </div>
                             <div class="injection-detail">
                                 <div><small style="color: var(--muted);">Usuario:</small> <code>{{ example.user }}</code></div>
@@ -478,7 +478,7 @@ HTML_TEMPLATE = """
                         <div class="injection-item">
                             <div class="injection-header">
                                 <strong>{{ example.name }}</strong>
-                                <button type="button" class="copy-btn" onclick="fillSearch('{{ example.term|replace("'", "\\'") }}')">Usar</button>
+                                <button type="button" class="copy-btn" onclick="fillSearch({{ example.term|tojson }})">Usar</button>
                             </div>
                             <div class="injection-detail">
                                 <div><small style="color: var(--muted);">Búsqueda:</small> <code>{{ example.term }}</code></div>
